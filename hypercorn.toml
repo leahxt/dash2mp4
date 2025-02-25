@@ -1,0 +1,11 @@
+accesslog = "-"
+errorlog = "-"
+graceful_timeout = 15
+read_timeout = 1800
+include_server_header = false
+loglevel = "INFO"
+bind = "0.0.0.0:8000"
+
+### development settings
+# use_reloader = true
+# loglevel = "DEBUG"
