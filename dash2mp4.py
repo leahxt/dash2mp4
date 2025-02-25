@@ -23,7 +23,7 @@ async def convert(req: Request) -> Response:
         return PlainTextResponse('Only conversions to MP4 audio are supported', status_code=HTTPStatus.BAD_REQUEST.value)
 
     with NamedTemporaryFile(suffix='.mp4') as tmpfile:
-        ffmpeg = FFmpeg().option('y').input('pipe:0').output(tmpfile.name, options={'vn': None, 'codec:a': 'copy', 'movflags', '+faststart'})  #type: ignore
+        ffmpeg = FFmpeg().option('y').input('pipe:0').output(tmpfile.name, options={'vn': None, 'codec:a': 'copy', 'movflags': '+faststart'})  #type: ignore
         await ffmpeg.execute(await req.body(), timeout=60)
         output = tmpfile.read()
 
