@@ -12,7 +12,8 @@ from starlette.routing import Route
 
 config = Config(".env")
 auth_key = config('AUTH_KEY', cast=Secret)
-download_base_path = config('DOWNLOAD_BASE_PATH')
+production_base_path = config('PRODUCTION_BASE_PATH')
+development_base_path = config('DEVELOPMENT_BASE_PATH')
 
 async def convert(req: Request) -> Response:
     provided_key = req.headers.get('X-Auth-Key')
@@ -22,11 +23,15 @@ async def convert(req: Request) -> Response:
     if req.headers.get('Accept') != 'audio/mp4':
         return PlainTextResponse('Only conversions to MP4 audio are supported', status_code=HTTPStatus.BAD_REQUEST.value)
 
+    base_path = production_base_path
+    if req.headers.get('X-Environment') == 'Development':
+        base_path = development_base_path
+
     filename_bytes = await req.body()
     filename = filename_bytes.decode('utf8')
 
     async with AsyncClient() as client:
-        input_request = await client.get(f'{download_base_path}/{filename}')
+        input_request = await client.get(f'{base_path}/{filename}')
         input_file = await input_request.aread()
 
     with NamedTemporaryFile(suffix='.mp4') as tmpfile:
