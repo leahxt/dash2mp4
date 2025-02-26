@@ -34,7 +34,7 @@ async def convert(req: Request) -> Response:
         await ffmpeg.execute(input_file, timeout=60)
         output = tmpfile.read()
 
-    return Response(output)
+    return Response(output, headers={'Content-Type': 'audio/mp4'})
 
 app = Starlette(routes=[
         Route('/', convert, methods=['POST'])
