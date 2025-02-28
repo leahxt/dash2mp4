@@ -20,6 +20,9 @@ async def convert(req: Request) -> Response:
     if provided_key != str(auth_key):
         return PlainTextResponse('Invalid key', status_code=HTTPStatus.UNAUTHORIZED.value)
     
+    if req.headers.get('Content-Type') != 'application/json':
+        return PlainTextResponse('Only JSON-formatted requests are accepted', status_code=HTTPStatus.BAD_REQUEST.value)
+
     if req.headers.get('Accept') != 'audio/mp4':
         return PlainTextResponse('Only conversions to MP4 audio are supported', status_code=HTTPStatus.BAD_REQUEST.value)
 
@@ -27,17 +30,25 @@ async def convert(req: Request) -> Response:
     if req.headers.get('X-Environment') == 'Development':
         base_path = development_base_path
 
-    filename_bytes = await req.body()
-    filename = filename_bytes.decode('utf8')
+    body = await req.json()
+    filename: str = body.get('filename')
+    chapters: str = body.get('chapters')
 
-    async with AsyncClient() as client:
-        input_request = await client.get(f'{base_path}/{filename}')
-        input_file = await input_request.aread()
+    with (NamedTemporaryFile(suffix='.mp4') as tmp_input,
+          NamedTemporaryFile(suffix='.txt') as tmp_chapters, 
+          NamedTemporaryFile(suffix='.mp4') as tmp_output):
+        
+        async with AsyncClient() as client:
+            input_request = await client.get(f'{base_path}/{filename}')
+            tmp_input.write(await input_request.aread())
+            tmp_input.flush()
 
-    with NamedTemporaryFile(suffix='.mp4') as tmpfile:
-        ffmpeg = FFmpeg().option('y').input('pipe:0').output(tmpfile.name, options={'vn': None, 'codec:a': 'copy', 'movflags': '+faststart'})  #type: ignore
-        await ffmpeg.execute(input_file, timeout=60)
-        output = tmpfile.read()
+        tmp_chapters.write(chapters.encode('utf8'))
+        tmp_chapters.flush()
+
+        ffmpeg = FFmpeg().option('y').input(tmp_input.name).input(tmp_chapters.name).output(tmp_output.name, options={'vn': None, 'codec:a': 'copy', 'movflags': '+faststart'})  #type: ignore
+        await ffmpeg.execute(timeout=60)
+        output = tmp_output.read()
 
     return Response(output, headers={'Content-Type': 'audio/mp4'})
 
