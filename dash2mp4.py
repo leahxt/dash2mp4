@@ -1,4 +1,6 @@
 from http import HTTPStatus
+from typing import cast
+from urllib.parse import SplitResult, urljoin, urlsplit, urlunsplit
 from tempfile import NamedTemporaryFile
 
 from httpx import AsyncClient
@@ -17,7 +19,7 @@ development_base_path = config('DEVELOPMENT_BASE_PATH')
 
 async def convert(req: Request) -> Response:
     provided_key = req.headers.get('X-Auth-Key')
-    if provided_key != str(auth_key):
+    if str(auth_key) != '' and provided_key != str(auth_key):
         return PlainTextResponse('Invalid key', status_code=HTTPStatus.UNAUTHORIZED.value)
     
     if req.headers.get('Content-Type') != 'application/json':
@@ -26,20 +28,24 @@ async def convert(req: Request) -> Response:
     if req.headers.get('Accept') != 'audio/mp4':
         return PlainTextResponse('Only conversions to MP4 audio are supported', status_code=HTTPStatus.BAD_REQUEST.value)
 
-    base_path = production_base_path
+    base_url = production_base_path
     if req.headers.get('X-Environment') == 'Development':
-        base_path = development_base_path
+        base_url = development_base_path
 
     body = await req.json()
-    filename: str = body.get('filename')
     chapters: str = body.get('chapters')
+
+    filename = body.get('filename')
+    filename_parts = cast(SplitResult, urlsplit(filename))
+    filename_url = urlunsplit(['', '', filename_parts.path, filename_parts.query, filename_parts.fragment])
+    file_url = urljoin(base_url, filename_url)
 
     with (NamedTemporaryFile(suffix='.mp4') as tmp_input,
           NamedTemporaryFile(suffix='.txt') as tmp_chapters, 
           NamedTemporaryFile(suffix='.mp4') as tmp_output):
         
         async with AsyncClient() as client:
-            input_request = await client.get(f'{base_path}/{filename}')
+            input_request = await client.get(file_url)
             tmp_input.write(await input_request.aread())
             tmp_input.flush()
 
