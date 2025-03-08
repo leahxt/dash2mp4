@@ -54,7 +54,7 @@ async def convert(req: Request) -> Response:
                     input_request = await client.get(file_url)
 
             if not input_request.is_success:
-                return PlainTextResponse(f'Failed to download requested file for encoding ({input_request.status_code}): {(await input_request.aread()).decode('utf8')}')
+                return PlainTextResponse(f'Failed to download requested file for encoding ({input_request.status_code}): {(await input_request.aread()).decode('utf8')}', status_code=HTTPStatus.BAD_GATEWAY)
 
             tmp_input.write(await input_request.aread())
             tmp_input.flush()
